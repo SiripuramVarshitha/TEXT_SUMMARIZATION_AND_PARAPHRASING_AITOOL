@@ -1,21 +1,53 @@
-from passlib.context import CryptContext
-from jose import jwt
-import datetime
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+from jose import JWTError, jwt
+from dotenv import load_dotenv
+import os
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Relative import for database connection
+from database import create_connection
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+# ------------------- LOAD ENV -------------------
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-def verify_password(plain_password, hashed_password) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecret")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-SECRET_KEY = "mysecretkey123"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
+# ------------------- JWT FUNCTIONS -------------------
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if not email:
+            return None
+        return email
+    except JWTError:
+        return None
+
+# ------------------- USER FUNCTIONS -------------------
+def get_user_by_email(email: str):
+    conn = create_connection()
+    if not conn:
+        return None
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, username, email, language_preference FROM users WHERE email=%s",
+            (email,)
+        )
+        user = cursor.fetchone()
+        return user
+    except Exception as e:
+        print(f"❌ Error fetching user: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
