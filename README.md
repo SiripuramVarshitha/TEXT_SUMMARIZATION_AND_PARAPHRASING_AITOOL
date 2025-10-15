@@ -32,4 +32,4 @@ AI Models: Hugging Face Transformers (BART, Pegasus, T5, etc.)
 This project demonstrates how Artificial Intelligence and Natural Language Processing can make text handling smarter and faster.
 By combining Streamlit for frontend, FastAPI for backend, and Transformer-based NLP models, we created a reliable and user-friendly text processing system.
 
-Authentication: JWT Tokens
+
